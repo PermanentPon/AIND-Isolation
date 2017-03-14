@@ -6,9 +6,11 @@ augment the test suite with your own test cases to further test your code.
 You must test your agent's strength against a set of agents with known
 relative strength using tournament.py and include the results in your report.
 """
-import random
+import logging
 from math import sqrt
 import time
+
+logging.basicConfig(filename='Isolation.log',level=logging.DEBUG)
 
 class Timeout(Exception):
     """Subclass base exception for code clarity."""

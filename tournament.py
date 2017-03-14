@@ -18,10 +18,11 @@ agentB at (1, 3) as player 2 then play to conclusion; the agents swap
 initiative in the second match with agentB at (5, 2) as player 1 and agentA at
 (1, 3) as player 2.
 """
-
+import logging
 import itertools
 import random
 import warnings
+from datetime import datetime
 
 from collections import namedtuple
 
@@ -32,6 +33,7 @@ from sample_players import open_move_score
 from sample_players import improved_score
 from game_agent import CustomPlayer
 from game_agent import custom_score
+
 
 NUM_MATCHES = 5  # number of matches against each opponent
 TIME_LIMIT = 150  # number of milliseconds before timeout
@@ -114,15 +116,14 @@ def play_round(agents, num_matches):
     agent_1 = agents[-1]
     wins = 0.
     total = 0.
-
-    print("\nPlaying Matches:")
-    print("----------")
+    logging.info("Playing Matches:")
+    logging.info("----------")
 
     for idx, agent_2 in enumerate(agents[:-1]):
 
         counts = {agent_1.player: 0., agent_2.player: 0.}
         names = [agent_1.name, agent_2.name]
-        print("  Match {}: {!s:^11} vs {!s:^11}".format(idx + 1, *names), end=' ')
+        logging.info("  Match {}: {!s:^11} vs {!s:^11}".format(idx + 1, *names))
 
         # Each player takes a turn going first
         for p1, p2 in itertools.permutations((agent_1.player, agent_2.player)):
@@ -134,7 +135,7 @@ def play_round(agents, num_matches):
 
         wins += counts[agent_1.player]
 
-        print("\tResult: {} to {}".format(int(counts[agent_1.player]),
+        logging.info("\tResult: {} to {}".format(int(counts[agent_1.player]),
                                           int(counts[agent_2.player])))
 
     return 100. * wins / total
@@ -151,6 +152,8 @@ def main():
     MM_ARGS = {"search_depth": 3, "method": 'minimax', "iterative": False}
     CUSTOM_ARGS = {"method": 'alphabeta', 'iterative': True}
 
+    #logging.basicConfig(level=logging.DEBUG)
+
     # Create a collection of CPU agents using fixed-depth minimax or alpha beta
     # search, or random selection.  The agent names encode the search method
     # (MM=minimax, AB=alpha-beta) and the heuristic function (Null=null_score,
@@ -162,7 +165,8 @@ def main():
     funcs = (sum, multiply, devide)
 
     coeffs = (-2.0, -1.0, 0.0, 1.0, 2.0)
-
+    logging.info("Started: " + datetime.strftime(datetime.now(), "%H:%M:%S"))
+    best_win_ratio = 0.0
     for coeff1 in coeffs:
         for coeff2 in coeffs:
             for coeff3 in coeffs:
@@ -182,8 +186,8 @@ def main():
                         # faster or slower computers.
                         #test_agents = [Agent(CustomPlayer(score_fn=improved_score, **CUSTOM_ARGS), "ID_Improved"),
                         test_agents = [Agent(CustomPlayer(score_fn=custom_score, aggr = score_func, **CUSTOM_ARGS), "Student")]
-                        print(coeff1,' ', coeff2,' ', coeff3)
-                        print(i,' ', j)
+                        logging.info('Coeffs: ' + str(coeff1) +' ' + str(coeff2) +' ' + str(coeff3))
+                        logging.info('Funcs:' + str(i) +' '+ str(j))
                         #print(DESCRIPTION)
                         for agentUT in test_agents:
                             #print("")
@@ -193,12 +197,13 @@ def main():
                             #random_agents + mm_agents
                             agents = ab_agents + [agentUT]
                             win_ratio = play_round(agents, NUM_MATCHES)
-
-                            print("\n\nResults:")
-                            print("----------")
-                            print("{!s:<15}{:>10.2f}%".format(agentUT.name, win_ratio))
-                            print("*************************")
-
+                            if best_win_ratio < win_ratio:
+                                best_win_ratio = win_ratio
+                                logging.info('New best win ratio!!!!')
+                            logging.info("Results:")
+                            logging.info("{!s:<15}{:>10.2f}%".format(agentUT.name, win_ratio))
+                            logging.info("*************************")
+                            logging.info("")
 
 if __name__ == "__main__":
     main()
