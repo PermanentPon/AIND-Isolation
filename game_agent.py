@@ -7,11 +7,67 @@ You must test your agent's strength against a set of agents with known
 relative strength using tournament.py and include the results in your report.
 """
 import random
-
+from math import sqrt
+import time
 
 class Timeout(Exception):
     """Subclass base exception for code clarity."""
     pass
+
+
+def move_score(game, player):
+    own_moves = len(game.get_legal_moves(player))
+    opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
+    return own_moves - opp_moves
+
+def next_move_score(game, player):
+    #3rd level own_moves - opp_moves heuristic
+    own_3rd_move = 0.
+    opp_3rd_move = 0.
+
+    blank_spaces = game.get_blank_spaces()
+
+    directions = [(-4, -2), (-4, 0), (-4, 2),
+                  (-3, -3), (-3, -1), (-3, 1), (-3, 3),
+                  (-2, -4), (-2, 0), (-2, 4),
+                  (-1, -3), (-1, -1), (-1, 1),  (-1, 3),
+                  (0, -4), (0, -2), (0, 2), (0, 4),
+                  (1, -3), (1, -1), (1, 1),  (1, 3),
+                  (2, -4),  (2, 0), (2, 4),
+                  (3, -3), (3, -1), (3, 1), (3, 3),
+                  (4, -2), (4, 0), (4, 2)]
+    my_pos = game.get_player_location(player)
+    opp_pos = game.get_player_location(game.get_opponent(player))
+    for dh, dv in directions:
+        if (my_pos[0] + dh, my_pos[1] + dv) in blank_spaces:
+            own_3rd_move += 1.0
+        if (opp_pos[0] + dh, opp_pos[1] + dv) in blank_spaces:
+            opp_3rd_move += 1.0
+    return own_3rd_move - opp_3rd_move
+
+def blank_spaces_score(game):
+    return len(game.get_blank_spaces())
+
+def close_to_center_score(game, player):
+    own_loc = game.get_player_location(player)
+    opp_loc  = game.get_player_location(game.get_opponent(player))
+    me_from_center = sqrt((own_loc[0] - game.width/2)**2 + (own_loc[1] - game.height/2)**2)
+    opp_from_center = sqrt((opp_loc[0] - game.width / 2) ** 2 + (opp_loc[1] - game.height / 2) ** 2)
+    max_from_center = sqrt((game.width / 2) ** 2 + (game.height / 2) ** 2)
+    own_center_score = max_from_center - me_from_center
+    opp_center_score = max_from_center - opp_from_center
+    return own_center_score - opp_center_score
+
+
+def average_distance_between_blank_spaces_score(game, player):
+    #average distance between blank_spaces heuristic
+    score = 0.0
+    blank_spaces = game.get_blank_spaces()
+    for blank in blank_spaces:
+        for blank2 in game.get_blank_spaces():
+            score += sqrt(((blank[0] - blank2[0]) ** 2 + (blank[1] - blank2[1]) ** 2))
+    score /= len(blank_spaces)**2
+    return score
 
 
 def custom_score(game, player):
@@ -36,10 +92,51 @@ def custom_score(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
+    own_moves = len(game.get_legal_moves(player))
+    opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
 
-    # TODO: finish this function!
-    raise NotImplementedError
+    if own_moves == 0:
+        return float("-inf")
 
+    if opp_moves == 0:
+        return float("inf")
+
+    '''
+    #close my blank spaces - opponent's
+    own_close_moves = 0.
+    opp_close_moves = 0.
+
+    blank_spaces = game.get_blank_spaces()
+
+    directions = [(-2, -1), (-2, 0), (-2, 1),
+                  (-1, -2), (-1, -1), (-1, 0), (-1, 1), (-1, 2),
+                  (0, -2), (0, -1), (0, 1), (0, 2),
+                  (1, -2), (1, -1), (1, 0), (1, 1), (1, 2),
+                  (2, -1), (2, 0), (2, 1)]
+    my_pos = game.get_player_location(player)
+    opp_pos = game.get_player_location(game.get_opponent(player))
+    for dh, dv in directions:
+        if (my_pos[0] + dh, my_pos[1] + dv) in blank_spaces:
+            own_close_moves += 1.0
+        if (opp_pos[0] + dh, opp_pos[1] + dv) in blank_spaces:
+            opp_close_moves += 1.0
+    '''
+
+    #opp_from_center = sqrt((opp_loc[0] - game.width / 2) ** 2 + (abs(opp_loc[1] - game.height / 2)) ** 2)
+    #between_players = sqrt(((own_loc[0] - opp_loc[0])**2 + (own_loc[1] - opp_loc[1])**2))
+    #print("Between players: ", between_players)
+    #return float(own_moves/(random.uniform(0, 2)*opp_moves+0.01) + between_players + 2/me_from_center) 71%
+    #if (len(game.get_blank_spaces()) > 0.5*game.height*game.width):
+    #if game.move_count < 20:
+    #    return float(score)
+    #return float((8.0 + own_moves - opp_moves)/16.0 + 0.5*(32.0 + own_3rd_move - opp_3rd_move)/64.0 + own_center_score/max_from_center)
+    move_score_value = move_score(game, player)
+    close_to_center_score_value = close_to_center_score(game, player)
+    blank_spaces_score_value = blank_spaces_score(game)
+
+    return player.aggr(move_score_value, close_to_center_score_value, blank_spaces_score_value)
+    #else:
+    #    return float(own_moves-opp_moves)
 
 class CustomPlayer:
     """Game-playing agent that chooses a move using your evaluation function
@@ -71,11 +168,12 @@ class CustomPlayer:
         timer expires.
     """
 
-    def __init__(self, search_depth=3, score_fn=custom_score,
+    def __init__(self, search_depth=3,score_fn=custom_score, aggr = None,
                  iterative=True, method='minimax', timeout=10.):
         self.search_depth = search_depth
         self.iterative = iterative
         self.score = score_fn
+        self.aggr = aggr
         self.method = method
         self.time_left = None
         self.TIMER_THRESHOLD = timeout
@@ -118,7 +216,10 @@ class CustomPlayer:
 
         self.time_left = time_left
 
-        # TODO: finish this function!
+        best_move = (-1, -1)
+
+        if len(legal_moves) == 0:
+            return best_move
 
         # Perform any required initializations, including selecting an initial
         # move from the game board (i.e., an opening book), or returning
@@ -129,16 +230,40 @@ class CustomPlayer:
             # here in order to avoid timeout. The try/except block will
             # automatically catch the exception raised by the search method
             # when the timer gets close to expiring
-            pass
+            clone = game.copy()
+            if self.iterative:
+                depth = 1
+
+                while True:
+                    if self.method == 'minimax':
+                        score, best_move = self.minimax(clone, depth)
+                    else:
+                        score, best_move = self.alphabeta(clone, depth)
+                    depth += 1
+                    if score == float("-inf") or score == float("inf"):
+                        break
+
+            else:
+                depth = self.search_depth
+                if self.method == 'minimax':
+                    score, best_move = self.minimax(clone, self.search_depth)
+                else:
+                    score, best_move = self.alphabeta(clone, self.search_depth)
 
         except Timeout:
-            # Handle any actions required at timeout, if necessary
+            #Handle any actions required at timeout, if necessary
+            #print('Depth inside except: ', depth)
             pass
 
         # Return the best move from the last completed search iteration
-        raise NotImplementedError
+        #print('Board: ')
+        #print(game.to_string())
+        #print('Depth: ', depth)
+        #print('Best move: ', best_move)
+        #print('Score: ', score)
+        return best_move
 
-    def minimax(self, game, depth, maximizing_player=True):
+    def minimax(self, game, depth, maximizing_player=True, count = 0):
         """Implement the minimax search algorithm as described in the lectures.
 
         Parameters
@@ -172,10 +297,33 @@ class CustomPlayer:
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        moves = game.get_legal_moves()
+        if count == depth:
+            temp_score = self.score(game, self)
+            return temp_score, (-1, -1)
+        if len(moves) == 0:
+            return self.score(game, self), (-1, -1)
+        # if count == 0:
+        best_move = moves[0]
+        if maximizing_player:
+            best_score = float("-inf")
+        else:
+            best_score = float("inf")
+        for move in moves:
+            clone = game.forecast_move(move)
+            if maximizing_player:
+                score, temp = self.minimax(clone, depth, False, count + 1)
+                if score > best_score:
+                    best_score = score
+                    best_move = move
+            else:
+                score, temp = self.minimax(clone, depth, True, count + 1)
+                if score < best_score:
+                    best_score = score
+                    best_move = move
+        return best_score, best_move
 
-    def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf"), maximizing_player=True):
+    def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf"), maximizing_player=True, count = 0):
         """Implement minimax search with alpha-beta pruning as described in the
         lectures.
 
@@ -216,5 +364,33 @@ class CustomPlayer:
         if self.time_left() < self.TIMER_THRESHOLD:
             raise Timeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        moves = game.get_legal_moves()
+        if count == depth:
+            temp_score = self.score(game, self)
+            return temp_score, (-1, -1)
+        if len(moves) == 0:
+            return game.utility(self), (-1, -1)
+        #if count == 0:
+        best_move = moves[0]
+        if maximizing_player:
+            best_score = float("-inf")
+        else:
+            best_score = float("inf")
+        for move in moves:
+            clone = game.forecast_move(move)
+            if maximizing_player:
+                score, temp = self.alphabeta(clone, depth, alpha, beta, False, count + 1)
+                if score > best_score:
+                    best_score = score
+                    best_move = move
+                if score >= beta: return best_score, best_move
+                alpha = max(alpha, score)
+
+            else:
+                score, temp = self.alphabeta(clone, depth, alpha, beta, True, count + 1)
+                if score < best_score:
+                    best_score = score
+                    best_move = move
+                if score <= alpha: return best_score, best_move
+                beta = min(beta, score)
+        return best_score, best_move

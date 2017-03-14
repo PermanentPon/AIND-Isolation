@@ -56,7 +56,6 @@ same opponents.
 
 Agent = namedtuple("Agent", ["player", "name"])
 
-
 def play_match(player1, player2):
     """
     Play a "fair" set of matches between two agents by playing two games
@@ -77,18 +76,24 @@ def play_match(player1, player2):
 
     # play both games and tally the results
     for game in games:
-        winner, _, termination = game.play(time_limit=TIME_LIMIT)
+        winner, move_history, termination = game.play(time_limit=TIME_LIMIT)
 
         if player1 == winner:
             num_wins[player1] += 1
-
+            #print('player1 is winner')
+            #print(game.to_string())
+            #print('Move history: ', move_history)
+            #print('termination: ', termination)
             if termination == "timeout":
                 num_timeouts[player2] += 1
             else:
                 num_invalid_moves[player2] += 1
 
         elif player2 == winner:
-
+            #print('player2 is winner')
+            #print(game.to_string())
+            #print('Move history: ', move_history)
+            #print('termination: ', termination)
             num_wins[player2] += 1
 
             if termination == "timeout":
@@ -136,10 +141,12 @@ def play_round(agents, num_matches):
 
 
 def main():
-
+    '''
     HEURISTICS = [("Null", null_score),
                   ("Open", open_move_score),
                   ("Improved", improved_score)]
+    '''
+    HEURISTICS = [("Open", open_move_score), ("Improved", improved_score)]
     AB_ARGS = {"search_depth": 5, "method": 'alphabeta', "iterative": False}
     MM_ARGS = {"search_depth": 3, "method": 'minimax', "iterative": False}
     CUSTOM_ARGS = {"method": 'alphabeta', 'iterative': True}
@@ -149,33 +156,48 @@ def main():
     # (MM=minimax, AB=alpha-beta) and the heuristic function (Null=null_score,
     # Open=open_move_score, Improved=improved_score). For example, MM_Open is
     # an agent using minimax search with the open moves heuristic.
-    mm_agents = [Agent(CustomPlayer(score_fn=h, **MM_ARGS),
-                       "MM_" + name) for name, h in HEURISTICS]
-    ab_agents = [Agent(CustomPlayer(score_fn=h, **AB_ARGS),
-                       "AB_" + name) for name, h in HEURISTICS]
-    random_agents = [Agent(RandomPlayer(), "Random")]
+    sum = lambda x, y: x + y
+    multiply = lambda x, y: x * y
+    devide = lambda x, y: x / (y + 0.0001)
+    funcs = (sum, multiply, devide)
 
-    # ID_Improved agent is used for comparison to the performance of the
-    # submitted agent for calibration on the performance across different
-    # systems; i.e., the performance of the student agent is considered
-    # relative to the performance of the ID_Improved agent to account for
-    # faster or slower computers.
-    test_agents = [Agent(CustomPlayer(score_fn=improved_score, **CUSTOM_ARGS), "ID_Improved"),
-                   Agent(CustomPlayer(score_fn=custom_score, **CUSTOM_ARGS), "Student")]
+    coeffs = (-2.0, -1.0, 0.0, 1.0, 2.0)
 
-    print(DESCRIPTION)
-    for agentUT in test_agents:
-        print("")
-        print("*************************")
-        print("{:^25}".format("Evaluating: " + agentUT.name))
-        print("*************************")
+    for coeff1 in coeffs:
+        for coeff2 in coeffs:
+            for coeff3 in coeffs:
+                for i in range(0, 2):
+                    for j in range(0, 2):
+                        score_func = lambda a, b, c: funcs[i](funcs[j](coeff1 * a, coeff2 * b), coeff3 * c)
+                        mm_agents = [Agent(CustomPlayer(score_fn=h, **MM_ARGS),
+                                           "MM_" + name) for name, h in HEURISTICS]
+                        ab_agents = [Agent(CustomPlayer(score_fn=h, **AB_ARGS),
+                                           "AB_" + name) for name, h in HEURISTICS]
+                        random_agents = [Agent(RandomPlayer(), "Random")]
 
-        agents = random_agents + mm_agents + ab_agents + [agentUT]
-        win_ratio = play_round(agents, NUM_MATCHES)
+                        # ID_Improved agent is used for comparison to the performance of the
+                        # submitted agent for calibration on the performance across different
+                        # systems; i.e., the performance of the student agent is considered
+                        # relative to the performance of the ID_Improved agent to account for
+                        # faster or slower computers.
+                        #test_agents = [Agent(CustomPlayer(score_fn=improved_score, **CUSTOM_ARGS), "ID_Improved"),
+                        test_agents = [Agent(CustomPlayer(score_fn=custom_score, aggr = score_func, **CUSTOM_ARGS), "Student")]
+                        print(coeff1,' ', coeff2,' ', coeff3)
+                        print(i,' ', j)
+                        #print(DESCRIPTION)
+                        for agentUT in test_agents:
+                            #print("")
+                            #print("*************************")
+                            #print("{:^25}".format("Evaluating: " + agentUT.name))
 
-        print("\n\nResults:")
-        print("----------")
-        print("{!s:<15}{:>10.2f}%".format(agentUT.name, win_ratio))
+                            #random_agents + mm_agents
+                            agents = ab_agents + [agentUT]
+                            win_ratio = play_round(agents, NUM_MATCHES)
+
+                            print("\n\nResults:")
+                            print("----------")
+                            print("{!s:<15}{:>10.2f}%".format(agentUT.name, win_ratio))
+                            print("*************************")
 
 
 if __name__ == "__main__":

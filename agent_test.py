@@ -506,6 +506,7 @@ class Project1Test(unittest.TestCase):
         adversary_location = (0, 0)
         method = "minimax"
 
+
         # The agent under test starts at the positions indicated below, and
         # performs an iterative deepening minimax search (minimax is easier to
         # test because it always visits all nodes in the game tree at every
