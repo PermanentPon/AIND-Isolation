@@ -10,7 +10,7 @@ import logging
 from math import sqrt
 import time
 
-logging.basicConfig(filename='Isolation.log',level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class Timeout(Exception):
     """Subclass base exception for code clarity."""
@@ -61,7 +61,7 @@ def close_to_center_score(game, player):
     return own_center_score - opp_center_score
 
 
-def average_distance_between_blank_spaces_score(game, player):
+def average_distance_between_blank_spaces_score(game):
     #average distance between blank_spaces heuristic
     score = 0.0
     blank_spaces = game.get_blank_spaces()
@@ -132,11 +132,13 @@ def custom_score(game, player):
     #if game.move_count < 20:
     #    return float(score)
     #return float((8.0 + own_moves - opp_moves)/16.0 + 0.5*(32.0 + own_3rd_move - opp_3rd_move)/64.0 + own_center_score/max_from_center)
-    move_score_value = move_score(game, player)
+    #move_score_value = move_score(game, player)
     close_to_center_score_value = close_to_center_score(game, player)
     blank_spaces_score_value = blank_spaces_score(game)
-
-    return player.aggr(move_score_value, close_to_center_score_value, blank_spaces_score_value)
+    average_distance_between_blank_spaces_score_value = average_distance_between_blank_spaces_score(game)
+    next_move_score_value = next_move_score(game, player)
+    #logging.info("custom_score called")
+    return player.aggr((own_moves-opp_moves),next_move_score_value, close_to_center_score_value, average_distance_between_blank_spaces_score_value)
     #else:
     #    return float(own_moves-opp_moves)
 
