@@ -10,7 +10,7 @@ import logging
 from math import sqrt
 import time
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(filename='isolation.log',level=logging.INFO)
 
 class Timeout(Exception):
     """Subclass base exception for code clarity."""
