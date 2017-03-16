@@ -5,24 +5,21 @@ alpha-beta search agents by running a round-robin tournament for the student
 agent. Note that all agents are constructed from the student CustomPlayer
 implementation, so any errors present in that class will affect the outcome
 here.
-
 The student agent plays a fixed number of "fair" matches against each test
 agent. The matches are fair because the board is initialized randomly for both
 players, and the players play each match twice -- switching the player order
 between games. This helps to correct for imbalances in the game due to both
 starting position and initiative.
-
 For example, if the random moves chosen for initialization are (5, 2) and
 (1, 3), then the first match will place agentA at (5, 2) as player 1 and
 agentB at (1, 3) as player 2 then play to conclusion; the agents swap
 initiative in the second match with agentB at (5, 2) as player 1 and agentA at
 (1, 3) as player 2.
 """
-import logging
+
 import itertools
 import random
 import warnings
-from datetime import datetime
 
 from collections import namedtuple
 
@@ -33,7 +30,6 @@ from sample_players import open_move_score
 from sample_players import improved_score
 from game_agent import CustomPlayer
 from game_agent import custom_score
-
 
 NUM_MATCHES = 5  # number of matches against each opponent
 TIME_LIMIT = 150  # number of milliseconds before timeout
@@ -58,6 +54,7 @@ same opponents.
 
 Agent = namedtuple("Agent", ["player", "name"])
 
+
 def play_match(player1, player2):
     """
     Play a "fair" set of matches between two agents by playing two games
@@ -78,24 +75,18 @@ def play_match(player1, player2):
 
     # play both games and tally the results
     for game in games:
-        winner, move_history, termination = game.play(time_limit=TIME_LIMIT)
+        winner, _, termination = game.play(time_limit=TIME_LIMIT)
 
         if player1 == winner:
             num_wins[player1] += 1
-            #print('player1 is winner')
-            #print(game.to_string())
-            #print('Move history: ', move_history)
-            #print('termination: ', termination)
+
             if termination == "timeout":
                 num_timeouts[player2] += 1
             else:
                 num_invalid_moves[player2] += 1
 
         elif player2 == winner:
-            #print('player2 is winner')
-            #print(game.to_string())
-            #print('Move history: ', move_history)
-            #print('termination: ', termination)
+
             num_wins[player2] += 1
 
             if termination == "timeout":
@@ -116,14 +107,15 @@ def play_round(agents, num_matches):
     agent_1 = agents[-1]
     wins = 0.
     total = 0.
-    logging.info("Playing Matches:")
-    logging.info("----------")
+
+    print("\nPlaying Matches:")
+    print("----------")
 
     for idx, agent_2 in enumerate(agents[:-1]):
 
         counts = {agent_1.player: 0., agent_2.player: 0.}
         names = [agent_1.name, agent_2.name]
-        logging.info("  Match {}: {!s:^11} vs {!s:^11}".format(idx + 1, *names))
+        print("  Match {}: {!s:^11} vs {!s:^11}".format(idx + 1, *names), end=' ')
 
         # Each player takes a turn going first
         for p1, p2 in itertools.permutations((agent_1.player, agent_2.player)):
@@ -135,75 +127,54 @@ def play_round(agents, num_matches):
 
         wins += counts[agent_1.player]
 
-        logging.info("\tResult: {} to {}".format(int(counts[agent_1.player]),
+        print("\tResult: {} to {}".format(int(counts[agent_1.player]),
                                           int(counts[agent_2.player])))
 
     return 100. * wins / total
 
 
 def main():
-    '''
+
     HEURISTICS = [("Null", null_score),
                   ("Open", open_move_score),
                   ("Improved", improved_score)]
-    '''
-    HEURISTICS = [("Open", open_move_score), ("Improved", improved_score)]
     AB_ARGS = {"search_depth": 5, "method": 'alphabeta', "iterative": False}
     MM_ARGS = {"search_depth": 3, "method": 'minimax', "iterative": False}
     CUSTOM_ARGS = {"method": 'alphabeta', 'iterative': True}
-
-    #logging.basicConfig(level=logging.DEBUG)
 
     # Create a collection of CPU agents using fixed-depth minimax or alpha beta
     # search, or random selection.  The agent names encode the search method
     # (MM=minimax, AB=alpha-beta) and the heuristic function (Null=null_score,
     # Open=open_move_score, Improved=improved_score). For example, MM_Open is
     # an agent using minimax search with the open moves heuristic.
-    sum = lambda x, y: x + y
-    multiply = lambda x, y: x * y
-    devide = lambda x, y: x / (y + 0.0001)
-    funcs = (sum, multiply, devide)
+    mm_agents = [Agent(CustomPlayer(score_fn=h, **MM_ARGS),
+                       "MM_" + name) for name, h in HEURISTICS]
+    ab_agents = [Agent(CustomPlayer(score_fn=h, **AB_ARGS),
+                       "AB_" + name) for name, h in HEURISTICS]
+    random_agents = [Agent(RandomPlayer(), "Random")]
 
-    coeffs = (-2.0, -1.0, 0.0, 1.0, 2.0)
-    logging.info("Started: " + datetime.strftime(datetime.now(), "%H:%M:%S"))
-    best_win_ratio = 0.0
-    for coeff1 in coeffs:
-        for coeff2 in coeffs:
-            for coeff3 in coeffs:
-                for i in range(0, 2):
-                    for j in range(0, 2):
-                        score_func = lambda a, b, c: funcs[i](funcs[j](coeff1 * a, coeff2 * b), coeff3 * c)
-                        mm_agents = [Agent(CustomPlayer(score_fn=h, **MM_ARGS),
-                                           "MM_" + name) for name, h in HEURISTICS]
-                        ab_agents = [Agent(CustomPlayer(score_fn=h, **AB_ARGS),
-                                           "AB_" + name) for name, h in HEURISTICS]
-                        random_agents = [Agent(RandomPlayer(), "Random")]
+    # ID_Improved agent is used for comparison to the performance of the
+    # submitted agent for calibration on the performance across different
+    # systems; i.e., the performance of the student agent is considered
+    # relative to the performance of the ID_Improved agent to account for
+    # faster or slower computers.
+    test_agents = [Agent(CustomPlayer(score_fn=improved_score, **CUSTOM_ARGS), "ID_Improved"),
+                   Agent(CustomPlayer(score_fn=custom_score, **CUSTOM_ARGS), "Student")]
 
-                        # ID_Improved agent is used for comparison to the performance of the
-                        # submitted agent for calibration on the performance across different
-                        # systems; i.e., the performance of the student agent is considered
-                        # relative to the performance of the ID_Improved agent to account for
-                        # faster or slower computers.
-                        #test_agents = [Agent(CustomPlayer(score_fn=improved_score, **CUSTOM_ARGS), "ID_Improved"),
-                        test_agents = [Agent(CustomPlayer(score_fn=custom_score, aggr = score_func, **CUSTOM_ARGS), "Student")]
-                        logging.info('Coeffs: ' + str(coeff1) +' ' + str(coeff2) +' ' + str(coeff3))
-                        logging.info('Funcs:' + str(i) +' '+ str(j))
-                        #print(DESCRIPTION)
-                        for agentUT in test_agents:
-                            #print("")
-                            #print("*************************")
-                            #print("{:^25}".format("Evaluating: " + agentUT.name))
+    print(DESCRIPTION)
+    for agentUT in test_agents:
+        print("")
+        print("*************************")
+        print("{:^25}".format("Evaluating: " + agentUT.name))
+        print("*************************")
 
-                            #random_agents + mm_agents
-                            agents = ab_agents + [agentUT]
-                            win_ratio = play_round(agents, NUM_MATCHES)
-                            if best_win_ratio < win_ratio:
-                                best_win_ratio = win_ratio
-                                logging.info('New best win ratio!!!!')
-                            logging.info("Results:")
-                            logging.info("{!s:<15}{:>10.2f}%".format(agentUT.name, win_ratio))
-                            logging.info("*************************")
-                            logging.info("")
+        agents = random_agents + mm_agents + ab_agents + [agentUT]
+        win_ratio = play_round(agents, NUM_MATCHES)
+
+        print("\n\nResults:")
+        print("----------")
+        print("{!s:<15}{:>10.2f}%".format(agentUT.name, win_ratio))
+
 
 if __name__ == "__main__":
     main()
